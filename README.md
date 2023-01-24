@@ -19,14 +19,14 @@ If updating the NINA firmware for an **Arduino UNO WiFi Rev. 2** or **Arduino Na
 +  --baud 115200 --before no_reset
 ```
 
-## Packaging
-The `make` command produces a bunch of binary files that must be flashed at very precise locations, making `esptool` commandline quite complicated.
-Instead, once the firmware has been compiled, you can invoke `combine.py` script to produce a monolithic binary that can be flashed at 0x0.
+If updating the NINA firmware for an **Arduino MKR Vidor 4000** board via [SerialNINAPassthrough] and esptool, use the buffered version of the sketch from sameer's patch-4 branch (https://github.com/sameer/WiFiNINA/blob/patch-4/examples/Tools/SerialNINAPassthrough/SerialNINAPassthrough.ino) sketch, and the sketch needs to be changed slightly:
+```diff
+-  FPGA.digitalWrite(FPGA_NINA_GPIO0, (Serial.dtr() == 1) ? HIGH : LOW);
++  FPGA.digitalWrite(FPGA_NINA_GPIO0, (Serial.dtr() == 0) ? HIGH : LOW);
 ```
-make
-python combine.py
-```
-This produces `NINA_W102.bin` file (a different name can be specified as parameter). To flash this file you can use https://arduino.github.io/arduino-fwuploader/2.2/usage/#firmware-flashing
+
+Eample invocation for **Arduino MKR Vidor 4000** board via [SerialNINAPAssthrough]:
+esptool.py --no-stub --chip esp32 --port COM4 --baud 119400 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect 0x0 NINA_W102.bin
 
 ## Build a new certificate list (based on the Google Android root CA list)
 ```bash

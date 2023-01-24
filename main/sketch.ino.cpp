@@ -60,6 +60,10 @@ void dumpBuffer(const char* label, uint8_t data[], int length) {
 void setDebug(int d) {
   debug = d;
 
+  #if defined(MKR_VIDOR4000)
+  debug = 0;  //no UART debug for VIDOR4K since using uart0 pins for BLE commands on uart1
+  #endif
+
   if (debug) {
     PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[1], 0);
     PIN_FUNC_SELECT(GPIO_PIN_MUX_REG[3], 0);
@@ -91,11 +95,17 @@ void setupWiFi();
 void setupBluetooth();
 
 void setup() {
-  setDebug(debug);
+  setDebug(debug); 
 
-  // put SWD and SWCLK pins connected to SAMD as inputs
+
   pinMode(15, INPUT);
   pinMode(21, INPUT);
+  pinMode(25, OUTPUT);  //blue
+  pinMode(26, OUTPUT);  //green
+  digitalWrite(25, LOW);  //blue on
+  digitalWrite(26, LOW);   //green on 
+  delay(1000);
+
 
 #if defined(NANO_RP2040_CONNECT)
   pinMode(26, OUTPUT);
@@ -115,10 +125,19 @@ void setup() {
 // #define UNO_WIFI_REV2
 
 void setupBluetooth() {
+  digitalWrite(25, LOW);  //blue on
+  digitalWrite(26, HIGH);   //green off 
   periph_module_enable(PERIPH_UART1_MODULE);
   periph_module_enable(PERIPH_UHCI0_MODULE);
 
-#if defined(UNO_WIFI_REV2)
+#if defined(MKR_VIDOR4000)
+  periph_module_disable(PERIPH_UART0_MODULE);
+  pinMode(1, OUTPUT);
+  pinMode(3, INPUT);
+  pinMode(22, OUTPUT);
+  pinMode(19, INPUT);
+  uart_set_pin(UART_NUM_1, 1, 3, 22, 19); // TX, RX, RTS, CTS  NINA reverses CTS/RTS 
+#elif defined(UNO_WIFI_REV2)
   uart_set_pin(UART_NUM_1, 1, 3, 33, 0); // TX, RX, RTS, CTS
 #elif defined(NANO_RP2040_CONNECT)
   uart_set_pin(UART_NUM_1, 1, 3, 33, 12); // TX, RX, RTS, CTS
@@ -129,16 +148,28 @@ void setupBluetooth() {
 
   esp_bt_controller_config_t btControllerConfig = BT_CONTROLLER_INIT_CONFIG_DEFAULT(); 
 
+  
+#if defined(MKR_VIDOR4000)
   btControllerConfig.hci_uart_no = UART_NUM_1;
-#if defined(UNO_WIFI_REV2) || defined(NANO_RP2040_CONNECT)
+  btControllerConfig.hci_uart_baudrate = 115200;
+#elif defined(UNO_WIFI_REV2) || defined(NANO_RP2040_CONNECT)
+  btControllerConfig.hci_uart_no = UART_NUM_1;  
   btControllerConfig.hci_uart_baudrate = 115200;
 #else
+  btControllerConfig.hci_uart_no = UART_NUM_1; 
   btControllerConfig.hci_uart_baudrate = 912600;
 #endif
 
   esp_bt_controller_init(&btControllerConfig);
-  while (esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_IDLE);
-  esp_bt_controller_enable(ESP_BT_MODE_BLE);
+  while (esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_IDLE){
+    digitalWrite(26, LOW);  //green on
+    delay(500);
+    digitalWrite(26, HIGH);  //green off
+    delay(500);
+  }
+  if(esp_bt_controller_enable(ESP_BT_MODE_BLE) != ESP_OK){
+    digitalWrite(25, HIGH);  //blue off
+  }
   esp_bt_sleep_enable();
 
   vTaskSuspend(NULL);
@@ -147,6 +178,7 @@ void setupBluetooth() {
     vTaskDelay(portMAX_DELAY);
   }
 }
+
 
 unsigned long getTime() {
   int ret = 0;
@@ -158,6 +190,9 @@ unsigned long getTime() {
 
 void setupWiFi() {
   esp_bt_controller_mem_release(ESP_BT_MODE_BTDM);
+  digitalWrite(25, HIGH);  //blue off
+  digitalWrite(26, LOW);   //green on
+
   SPIS.begin();
 
   esp_vfs_spiffs_conf_t conf = {

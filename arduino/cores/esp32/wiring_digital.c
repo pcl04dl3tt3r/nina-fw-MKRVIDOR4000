@@ -23,6 +23,8 @@
 
 void pinMode(uint32_t pin, uint32_t mode)
 {
+  gpio_reset_pin((gpio_num_t)pin);
+  gpio_hold_dis((gpio_num_t)pin);
   switch (mode) {
     case INPUT:
       gpio_set_direction((gpio_num_t)pin, GPIO_MODE_INPUT);
@@ -32,6 +34,7 @@ void pinMode(uint32_t pin, uint32_t mode)
     case OUTPUT:
       gpio_set_direction((gpio_num_t)pin, GPIO_MODE_OUTPUT);
       gpio_set_pull_mode((gpio_num_t)pin, GPIO_FLOATING);
+      gpio_set_drive_capability((gpio_num_t)pin, GPIO_DRIVE_CAP_MAX);
       break;
 
     case INPUT_PULLUP:
@@ -50,5 +53,5 @@ void digitalWrite(uint32_t pin, uint32_t val)
 
 int digitalRead(uint32_t pin)
 {
-  return gpio_get_level(pin);
+  return gpio_get_level((gpio_num_t)pin);
 }
